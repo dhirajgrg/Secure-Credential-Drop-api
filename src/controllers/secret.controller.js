@@ -29,7 +29,7 @@ if (isNaN(expirySeconds) || expirySeconds <= 0) {
     return next(new AppError("Secret has expired", 404));
   }
 
-  const url = `http://localhost:5173/view/${token}`;
+const url = `${process.env.FRONTEND_URL}/view/${token}`;
 
   res.status(201).json({
     status: "success",
