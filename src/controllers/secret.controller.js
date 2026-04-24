@@ -5,31 +5,25 @@ import { generateToken, encryption, decryption } from "../utils/crypto.util.js";
 
 export const createSecret = catchAsync(async (req, res, next) => {
   const { secret, expiresSecretTimes } = req.body;
+
   if (!secret || !expiresSecretTimes) {
     return next(
       new AppError("Please provide secret and expiresSecretTimes", 400),
     );
   }
 
-const expirySeconds = parseInt(expiresSecretTimes, 10); 
-if (isNaN(expirySeconds) || expirySeconds <= 0) {
-  return next(new AppError("Invalid expiry time", 400));
-}
+  const expirySeconds = parseInt(expiresSecretTimes, 10);
+  if (isNaN(expirySeconds) || expirySeconds <= 0) {
+    return next(new AppError("Invalid expiry time", 400));
+  }
 
   const token = generateToken();
   const encryptedData = encryption(secret);
-  const expiresAt = new Date(Date.now() + expiresSecretTimes * 1000);
+  const expiresAt = new Date(Date.now() + expirySeconds * 1000);
 
-  const newSecret = await Secret.create({ token, encryptedData, expiresAt });
+  await Secret.create({ token, encryptedData, expiresAt });
 
-  if (!newSecret) return next(new AppError("Secret not found", 404));
-  
-  if (newSecret.expiresAt < new Date()) {
-    await Secret.deleteOne({ token }); 
-    return next(new AppError("Secret has expired", 404));
-  }
-
-const url = `${process.env.FRONTEND_URL}/view/${token}`;
+  const url = `${process.env.FRONTEND_URL}/view/${token}`;
 
   res.status(201).json({
     status: "success",
@@ -44,11 +38,11 @@ export const getSecret = catchAsync(async (req, res, next) => {
   if (!token) {
     return next(new AppError("Token is required", 400));
   }
-   
+
   const secretDoc = await Secret.findOneAndUpdate(
-    { token, isBurned: false ,expiresAt:{$gt:new Date()}},
+    { token, isBurned: false, expiresAt: { $gt: new Date() } },
     { $set: { isBurned: true } },
-    { returnDocument: 'after' },
+    { returnDocument: "after" },
   );
 
   if (!secretDoc) {
@@ -56,7 +50,6 @@ export const getSecret = catchAsync(async (req, res, next) => {
   }
 
   let decryptedData;
-
   try {
     decryptedData = decryption(secretDoc.encryptedData);
   } catch (err) {
